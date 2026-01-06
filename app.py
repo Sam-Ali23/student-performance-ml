@@ -97,7 +97,7 @@ with tab1:
             format_func=lambda x: "Father" if x == 0 else "Mother"
         )
 
-    # Fill missing features with 0 (so the model always gets the full feature set)
+    # Fill missing features with 0 (ensures the model always gets the full feature set)
     for feature in feature_names:
         if feature not in inputs:
             inputs[feature] = 0
@@ -106,13 +106,17 @@ with tab1:
     st.subheader("🔍 Prediction Result")
 
     if st.button("🎯 Predict Performance"):
+        # Build input row in correct feature order
         X_input = pd.DataFrame([inputs])[feature_names]
 
+        # Predict
         prediction = int(model.predict(X_input)[0])
         probabilities = model.predict_proba(X_input)[0]
 
+        # Label
         label = class_map.get(prediction, f"Class {prediction}")
 
+        # Big result banner
         if label.lower() == "high":
             st.success("✅ Predicted Performance: **HIGH**")
         elif label.lower() == "medium":
@@ -120,9 +124,45 @@ with tab1:
         else:
             st.error("❌ Predicted Performance: **LOW**")
 
-        st.markdown("### 📊 Confidence Levels")
+        # ---------------------------------
+        # Build probabilities dataframe
+        # ---------------------------------
+        prob_table = []
         for i, prob in enumerate(probabilities):
-            st.write(f"- **{class_map.get(i, f'Class {i}')}**: {prob:.2%}")
+            prob_table.append({
+                "Class": class_map.get(i, f"Class {i}"),
+                "Probability": float(prob)
+            })
+
+        prob_df = pd.DataFrame(prob_table).sort_values("Probability", ascending=False)
+
+        # ---------------------------------
+        # Text output
+        # ---------------------------------
+        st.markdown("### 📊 Confidence Levels (Text)")
+        for _, r in prob_df.iterrows():
+            st.write(f"- **{r['Class']}**: {r['Probability']:.2%}")
+
+        # ---------------------------------
+        # Chart output (bar chart)
+        # ---------------------------------
+        st.markdown("### 📈 Confidence Chart (Bar)")
+        chart_df = prob_df.set_index("Class")[["Probability"]]
+        st.bar_chart(chart_df)
+
+        # ---------------------------------
+        # Progress bars (nice visual)
+        # ---------------------------------
+        st.markdown("### ✅ Confidence Bars")
+        for _, r in prob_df.iterrows():
+            st.write(f"**{r['Class']}**")
+            st.progress(int(r["Probability"] * 100))
+
+        # Optional: show as a table
+        with st.expander("Show probability table"):
+            show_df = prob_df.copy()
+            show_df["Probability"] = show_df["Probability"].map(lambda x: f"{x:.4f}")
+            st.dataframe(show_df, use_container_width=True)
 
     st.markdown(
         """
@@ -146,14 +186,12 @@ with tab2:
     )
 
     st.markdown("### ✅ Global Feature Importance (All Classes)")
-
     if os.path.exists("shap_feature_importance.png"):
         st.image("shap_feature_importance.png", use_container_width=True)
     else:
         st.warning("Image not found: shap_feature_importance.png (Upload it to the GitHub repo).")
 
     st.markdown("### ✅ Beeswarm Plot (Class 2)")
-
     if os.path.exists("shap_beeswarm_class2.png"):
         st.image("shap_beeswarm_class2.png", use_container_width=True)
     else:
